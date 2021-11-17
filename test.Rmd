@@ -1,12 +1,23 @@
 ---
 title: "College Analysis"
 output: 
-  flexdashboard::flex_dashboard
+  flexdashboard::flex_dashboard:
+    social: [ "twitter", "github", "menu" ]
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
 ```
+
+About {data-icon="fas fa-search" data-navmenu="Explore" }
+===================================== 
+
+Column {data-width=200}
+-------------------------------------
+
+### About this flexdashboard
+
+This dashboard allows you to explore trends in house prices across 30 large metro areas. The metro areas covered are depicted in the nearby map.  The map is colored  according to Census regions.  We picked the 30 largest metro areas based on population. Explore the different data visualizations above.
 
 
 Getting Our Data Ready {data-icon="fas fa-wrench"}
@@ -22,6 +33,7 @@ Column 1 {data-width=400}
 library(rscorecard)
 library(rstudioapi)
 library(knitr)
+library(dplyr)
 
 # Key registration https://collegescorecard.ed.gov/data/documentation/
 my_key <- askForPassword()
@@ -62,23 +74,35 @@ knitr::kable(head(df, n=8))
 dim(df)
 ``` 
 
-College Tuition {.storyboard} 
+College Tuition {data-navmenu="Explore" data-icon="fas fa-university"} 
 =================================================
 
 
 ### Setup 
 
+```{r}
+library(rscorecard)
+library(rstudioapi)
+library(knitr)
+library(dplyr)
+df$control <- factor(df$control, labels = c('public','private','for profit'))
+df$npt <- df$npt4_priv
+df$npt[is.na(df$npt)] <- df$npt4_pub[is.na(df$npt)]
+df <- df %>% select(-c(npt4_priv,-npt4_pub))
+df <- df[!is.na(df$npt),]
+kable(df)
+```
+
+
+
+
+
+### Code
 
 
 
 
 
 ### Questions
-
-
-
-
-
-### Answers
 
 
