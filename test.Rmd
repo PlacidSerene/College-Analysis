@@ -2,12 +2,23 @@
 title: "College Analysis"
 output: 
   flexdashboard::flex_dashboard:
-    social: [ "twitter", "github", "menu" ]
+    theme:
+      version: 4
 ---
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
 ```
+
+<style type="text/css">
+
+.text { 
+   font-size: 22px;
+   font-family: Helvetica;}
+
+</style>
+
+
 
 About {data-icon="fas fa-search" data-navmenu="Explore" }
 ===================================== 
@@ -74,11 +85,25 @@ knitr::kable(head(df, n=8))
 dim(df)
 ``` 
 
-College Tuition {data-navmenu="Explore" data-icon="fas fa-university"} 
+College Tuition {data-icon="fas fa-university" .storyboard} 
 =================================================
 
-
 ### Setup 
+
+<div class="text" align="center"> ** derogatory term “scrub” means several different things. One definition is someone (especially a game player) who is not good at something (especially a game). By this definition, we all start out as scrubs, and there is certainly no shame in that. I mean the term differently, though. A scrub is a player who is handicapped by self-imposed rules that the game knows nothing about. A scrub does not play to win. ** </div>
+
+<div align="center"> Load college scorecard data, college_scorecard.Rda for data frame, df </div>
+
+* Clean up college scorecard data
+
+  - Create a new variable, npt, that combines npt4_priv and npt4_pub.
+  
+  - Filter df where npt is not null, !is.na()
+  
+* Add a factor variable for control with labels 1=public, 2=private, 3=for profit
+
+
+### Our Data 
 
 ```{r}
 library(rscorecard)
@@ -97,12 +122,18 @@ kable(df)
 
 
 
-### Code
-
-
-
-
-
 ### Questions
+What is William Jessup’s net price to tuition, npt, and how does it compare to the general US tuition? How does it compare to the private college tuition?
+
+```{r}
+
+```
+
+
+
+
+Based on npt, what areas of the country is tuition more expensive? Any theories why?
+
+
 
 
