@@ -20,16 +20,21 @@ library(flexdashboard)
 
 
 
-About {data-icon="fas fa-search" data-navmenu="Explore" }
+About {data-icon="fas fa-search"}
 ===================================== 
 
-Column {data-width=200}
--------------------------------------
 
 ### About this flexdashboard
 
-This dashboard allows you to explore trends in house prices across 30 large metro areas. The metro areas covered are depicted in the nearby map.  The map is colored  according to Census regions.  We picked the 30 largest metro areas based on population. Explore the different data visualizations above.
+<div class="text"> 
+This dashboard allows you to explore 1500+ colleges in the United States. The dashboard will cover:
 
+1. The quick overview of William Jessup University tuition (the school which the author currently attends)
+
+2. The analysis for the tuition price for colleges around the US
+
+3. College recommendation based on some specific criterias.
+</div>
 
 Getting Our Data Ready {data-icon="fas fa-wrench"}
 ==============================================
@@ -85,7 +90,7 @@ knitr::kable(head(df, n=8))
 dim(df)
 ``` 
 
-College Tuition {data-icon="fas fa-university" .storyboard} 
+William Jessup University {data-icon="fas fa-school" .storyboard} 
 =================================================
 
 ### Setup 
@@ -184,7 +189,8 @@ plot2
 ```
 </div> 
 
-### What areas of the country is tuition more expensive?
+College Tuition {data-icon="fas fa-university" .storyboard}
+=======================================================
 <div class="text"> 
 * Based on npt, what areas of the country is tuition more expensive? Any theories why?
 
