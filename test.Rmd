@@ -13,7 +13,7 @@ library(flexdashboard)
 <style type="text/css">
 
 .text { 
-   font-size: 22px;
+   font-size: 18px;
    font-family: Helvetica;}
 
 </style>
@@ -90,9 +90,11 @@ College Tuition {data-icon="fas fa-university" .storyboard}
 
 ### Setup 
 
-<div class="text" align="center"> ** derogatory term “scrub” means several different things. One definition is someone (especially a game player) who is not good at something (especially a game). By this definition, we all start out as scrubs, and there is certainly no shame in that. I mean the term differently, though. A scrub is a player who is handicapped by self-imposed rules that the game knows nothing about. A scrub does not play to win. ** </div>
 
-<div align="center"> Load college scorecard data, college_scorecard.Rda for data frame, df </div>
+
+<div class="text"> 
+
+* Load college scorecard data, college_scorecard.Rda for data frame, df
 
 * Clean up college scorecard data
 
@@ -101,15 +103,18 @@ College Tuition {data-icon="fas fa-university" .storyboard}
   - Filter df where npt is not null, !is.na()
   
 * Add a factor variable for control with labels 1=public, 2=private, 3=for profit
+ </div>
 
-
-### Our Data 
+### Our Cleaned Data After The Setup 
 
 ```{r}
 library(rscorecard)
 library(rstudioapi)
 library(knitr)
 library(dplyr)
+library(ggplot2)
+library(scales)
+library(gridExtra)
 df$control <- factor(df$control, labels = c('public','private','for profit'))
 df$npt <- df$npt4_priv
 df$npt[is.na(df$npt)] <- df$npt4_pub[is.na(df$npt)]
@@ -122,18 +127,77 @@ kable(df)
 
 
 
-### Questions
-What is William Jessup’s net price to tuition, npt, and how does it compare to the general US tuition? How does it compare to the private college tuition?
+### William Jessup Net Price Tuition
+<div class="text"> 
+* What is William Jessup’s net price to tuition, npt, and how does it compare to the general US tuition?
 
-```{r}
+```{r, echo=FALSE}
+
+# Calculate William Jessup’s percent rank. Use calculation in a sentence to support answer.
+
+df <- df %>% mutate(rank_all = percent_rank(npt))
+college <- 'William Jessup University'
+jessup_percent_rank <- df %>% filter(instnm==college) %>% select(rank_all)
+jessup_percent_rank <- percent(jessup_percent_rank$rank_all)
+
+# Calculate William Jessup’s percent rank for private colleges. Use calculation in a sentence to support answer
+df <- df %>% group_by(control) %>% mutate(rank_control = percent_rank(npt))
+jessup_percent_rank_private <- df %>% filter(instnm==college) %>% select(rank_control)
+jessup_percent_rank_private <- percent(jessup_percent_rank_private$rank_control)
+  
+# Create a histogram of net price tuition, npt, with a reference line for William Jessup
+jessup_ref <- df$npt[df$instnm==college]
+plot1 <- ggplot(df, aes(x=npt)) + geom_histogram() + geom_vline(xintercept=jessup_ref, color='green')
+# Create a histogram of net price tuition, npt, with a reference line for William Jessup and facet_wrap by control variable
+plot2 <- ggplot(df, aes(x=npt)) + geom_histogram() + geom_vline(xintercept=jessup_ref, color='green') + facet_wrap(~control)
+# Calculate the correlation, cor, between npt and longitude and npt and latitude
+cor1 <- cor(df$npt,df$longitude)
+cor2 <- cor(df$npt,df$latitude)
+
+#Combine two scatter plots where of x=longitude,y = npt and where x=latitude,y = npt side by side.
+plot3 <- ggplot(df, aes(x=longitude, y=npt)) + geom_point()
+plot4 <- ggplot(df, aes(x=latitude, y=npt)) + geom_point()
+
+
+#Create another scatter plot of your choice starting with x=longitude, y=latitude.
+
+
+df_q4 <- df
+stats <- summary(df_q4$npt)
+df_q4$npt_q3 <-df_q4$npt >= stats[5]
+p4 <- ggplot(df_q4, aes(longitude, latitude, color = npt_q3 ,alpha = .2)) +  geom_point() + borders("state") + scale_color_manual(values=c("gray", "red")) + labs(title = 'NPT in top quartile')
 
 ```
 
+**William Jessup University is `r jessup_percent_rank` for all US colleges and `r jessup_percent_rank_private` for private for percent rank on net price of tuition, npt.**
+
+```{r, echo=FALSE}
+plot1
+```
 
 
+* How does it compare to the private college tuition?
 
-Based on npt, what areas of the country is tuition more expensive? Any theories why?
 
+```{r, fig.width=12, echo=FALSE}
+plot2
+```
+</div> 
+
+### What areas of the country is tuition more expensive?
+<div class="text"> 
+* Based on npt, what areas of the country is tuition more expensive? Any theories why?
+
+**The latitude correlation, `r cor2`, is higher compared to longitude correlation, `r cor1` but still both have weak linear correlation. Based on the scatter plots below there is a noticeable pattern especially the variance along the coast. The next question to investigate is if the higher tuition colleges (top quartile) are located by major cities. **
+
+```{r, fig.width=12, echo=FALSE}
+grid.arrange(plot4,plot3,ncol=2)
+```
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+p4
+```
+</div> 
 
 
 
