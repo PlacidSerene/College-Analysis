@@ -191,6 +191,9 @@ plot2
 
 College Tuition {data-icon="fas fa-university" .storyboard}
 =======================================================
+
+### What region has higher college tuition?
+
 <div class="text"> 
 * Based on npt, what areas of the country is tuition more expensive? Any theories why?
 
@@ -205,5 +208,11 @@ p4
 ```
 </div> 
 
+### College Tuition Numeric Variables
 
 
+* How many colleges were excluded and what is the percentage of colleges remaining in the analysis? 
+
+**There were 184 excluded colleges with 90.59% remaining from the original data set**
+
+* What numeric variables are shown to have a linear relationship or recognizable pattern with npt?
