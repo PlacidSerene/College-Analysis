@@ -106,6 +106,7 @@ William Jessup University {data-icon="fas fa-school" .storyboard}
   - Create a new variable, npt, that combines npt4_priv and npt4_pub.
   
   - Filter df where npt is not null, !is.na()
+  - Remove "distanceonly" column
   
 * Add a factor variable for control with labels 1=public, 2=private, 3=for profit
  </div>
@@ -115,16 +116,19 @@ William Jessup University {data-icon="fas fa-school" .storyboard}
 ```{r}
 library(rscorecard)
 library(rstudioapi)
+library(purrr)
 library(knitr)
 library(dplyr)
 library(ggplot2)
 library(scales)
+library(tidyr)
 library(gridExtra)
+df_full <- df
 df$control <- factor(df$control, labels = c('public','private','for profit'))
 df$npt <- df$npt4_priv
 df$npt[is.na(df$npt)] <- df$npt4_pub[is.na(df$npt)]
 df <- df %>% select(-c(npt4_priv,-npt4_pub))
-df <- df[!is.na(df$npt),]
+df <- df[!is.na(df$npt),] %>% select(-distanceonly)
 kable(df)
 ```
 
@@ -140,14 +144,14 @@ kable(df)
 
 # Calculate William Jessup’s percent rank. Use calculation in a sentence to support answer.
 
-df <- df %>% mutate(rank_all = percent_rank(npt))
+df1a <- df %>% mutate(rank_all = percent_rank(npt))
 college <- 'William Jessup University'
-jessup_percent_rank <- df %>% filter(instnm==college) %>% select(rank_all)
+jessup_percent_rank <- df1a %>% filter(instnm==college) %>% select(rank_all)
 jessup_percent_rank <- percent(jessup_percent_rank$rank_all)
 
 # Calculate William Jessup’s percent rank for private colleges. Use calculation in a sentence to support answer
-df <- df %>% group_by(control) %>% mutate(rank_control = percent_rank(npt))
-jessup_percent_rank_private <- df %>% filter(instnm==college) %>% select(rank_control)
+df1b <- df %>% group_by(control) %>% mutate(rank_control = percent_rank(npt))
+jessup_percent_rank_private <- df1b %>% filter(instnm==college) %>% select(rank_control)
 jessup_percent_rank_private <- percent(jessup_percent_rank_private$rank_control)
   
 # Create a histogram of net price tuition, npt, with a reference line for William Jessup
@@ -170,7 +174,7 @@ plot4 <- ggplot(df, aes(x=latitude, y=npt)) + geom_point()
 df_q4 <- df
 stats <- summary(df_q4$npt)
 df_q4$npt_q3 <-df_q4$npt >= stats[5]
-p4 <- ggplot(df_q4, aes(longitude, latitude, color = npt_q3 ,alpha = .2)) +  geom_point() + borders("state") + scale_color_manual(values=c("gray", "red")) + labs(title = 'NPT in top quartile')
+plot5 <- ggplot(df_q4, aes(longitude, latitude, color = npt_q3 ,alpha = .2)) +  geom_point() + borders("state") + scale_color_manual(values=c("gray", "red")) + labs(title = 'NPT in top quartile')
 
 ```
 
@@ -204,15 +208,40 @@ grid.arrange(plot4,plot3,ncol=2)
 ```
 
 ```{r, fig.width=12, fig.height=8, echo=FALSE}
-p4
+plot5
 ```
 </div> 
 
 ### College Tuition Numeric Variables
 
-
+<div class="text"> 
 * How many colleges were excluded and what is the percentage of colleges remaining in the analysis? 
 
-**There were 184 excluded colleges with 90.59% remaining from the original data set**
+```{r, echo=FALSE}
+colleges_excluded <- nrow(df_full) - nrow(df)
+colleges_remaining <- percent(nrow(df)/nrow(df_full))
+```
+
+
+**There were `r colleges_excluded` excluded colleges with `r colleges_remaining` remaining from the original data set**
 
 * What numeric variables are shown to have a linear relationship or recognizable pattern with npt?
+
+```{r, fig.width=12, echo=FALSE}
+df_num <- df %>% select(-unitid) %>% keep(is.numeric) %>%  gather(key = "key", value = "value", -npt)
+plot6 <- ggplot(df_num, aes(value, npt)) + geom_point(alpha = .2, size = .2) + facet_wrap(~ key, scales = "free")
+df_num_cor <- df_num %>% group_by(key) %>% 
+  summarize(Cor = cor(value,npt, use = "complete.obs")) %>% 
+  mutate(Rank = dense_rank(1-abs(Cor))) %>% arrange(Rank)
+plot6
+```
+
+**Linear relationship with actcm75, omawdpd8_ftft and slight relatiion ship the the md_earn variables. Public colleges show to have a lower cost. V shaped pattern for ugds**
+
+* What numeric variables have the strongest linear correlation with npt?
+
+```{r, echo=FALSE}
+kable(df_num_cor)
+```
+
+</div> 
