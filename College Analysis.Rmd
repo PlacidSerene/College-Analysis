@@ -1,0 +1,608 @@
+---
+title: "College Analysis"
+output: 
+  flexdashboard::flex_dashboard:
+    theme:
+      version: 4
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+<style type="text/css">
+
+.text { 
+   font-size: 18px;
+   font-family: Helvetica;}
+
+</style>
+
+
+
+About {data-icon="fas fa-search"}
+===================================== 
+
+
+### About this flexdashboard
+
+<div class="text"> 
+This dashboard allows you to explore 1500+ colleges in the United States. The dashboard will cover:
+
+1. The quick overview of William Jessup University tuition (the school which the author currently attends)
+
+2. The analysis for the tuition price for colleges around the US
+
+3. College recommendation based on some specific criteria.
+
+4. Linear Model for College prediction.
+</div>
+
+Getting Our Data Ready {data-icon="fas fa-wrench"}
+==============================================
+
+
+Column 1 {data-width=400}
+---------------------------------
+
+### Getting Data
+
+```{r, echo=TRUE, eval=FALSE}
+library(rscorecard)
+library(rstudioapi)
+library(knitr)
+library(dplyr)
+
+# Key registration https://collegescorecard.ed.gov/data/documentation/
+my_key <- askForPassword()
+sc_key(my_key)
+
+
+# Population predominantly bachelor's-degree granting colleges (preddeg==3)
+df <- sc_init() %>% 
+  sc_filter(preddeg==3) %>%
+  sc_select(unitid, instnm, stabbr, city, actcm25, actcm75, ugds, control, distanceonly,
+            md_earn_wne_p6, md_earn_wne_p8, md_earn_wne_p10,
+            npt4_pub,npt4_priv, 
+            omawdp8_ftft, 
+            latitude,longitude) %>%
+  sc_year('latest') %>% 
+  sc_get()
+
+# Exclusions 
+# (1) Not online only (DISTANCEONLY == 0)
+# (2) College in US state (exclude DC and US territories)
+
+excluded_strabbr <- unique(df$stabbr[!df$stabbr %in% state.abb])
+df <- df[df$stabbr %in% state.abb,]
+df <- df[df$distanceonly == 0,]
+save(df,"your file path")
+
+```
+
+
+
+## Column 2
+
+### Our Data Sample
+
+```{r, echo=TRUE}
+load('college.Rda')
+knitr::kable(head(df, n=8))
+dim(df)
+``` 
+
+William Jessup University {data-icon="fas fa-school" .storyboard} 
+=================================================
+
+### Setup 
+
+
+
+<div class="text"> 
+
+* Load college scorecard data, college_scorecard.Rda for data frame, df
+
+* Clean up college scorecard data
+
+  - Create a new variable, npt, that combines npt4_priv and npt4_pub.
+  
+  - Filter df where npt is not null, !is.na()
+  - Remove "distanceonly" column
+  
+* Add a factor variable for control with labels 1=public, 2=private, 3=for profit
+ </div>
+
+### Our Cleaned Data After The Setup 
+
+```{r}
+library(rscorecard)
+library(rstudioapi)
+library(purrr)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(tidyr)
+library(gridExtra)
+df_full <- df
+df$control <- factor(df$control, labels = c('public','private','for profit'))
+df$npt <- df$npt4_priv
+df$npt[is.na(df$npt)] <- df$npt4_pub[is.na(df$npt)]
+df <- df %>% select(-c(npt4_priv,npt4_pub))
+df <- df[!is.na(df$npt),] %>% select(-distanceonly)
+kable(df)
+```
+
+
+
+
+
+### William Jessup Net Price Tuition
+<div class="text"> 
+* What is William Jessup’s net price to tuition, npt, and how does it compare to the general US tuition?
+
+```{r, echo=FALSE}
+
+# Calculate William Jessup’s percent rank. Use calculation in a sentence to support answer.
+
+df1a <- df %>% mutate(rank_all = percent_rank(npt))
+college <- 'William Jessup University'
+jessup_percent_rank <- df1a %>% filter(instnm==college) %>% select(rank_all)
+jessup_percent_rank <- percent(jessup_percent_rank$rank_all)
+
+# Calculate William Jessup’s percent rank for private colleges. Use calculation in a sentence to support answer
+df1b <- df %>% group_by(control) %>% mutate(rank_control = percent_rank(npt))
+jessup_percent_rank_private <- df1b %>% filter(instnm==college) %>% select(rank_control)
+jessup_percent_rank_private <- percent(jessup_percent_rank_private$rank_control)
+  
+# Create a histogram of net price tuition, npt, with a reference line for William Jessup
+jessup_ref <- df$npt[df$instnm==college]
+plot1 <- ggplot(df, aes(x=npt)) + geom_histogram() + geom_vline(xintercept=jessup_ref, color='green')
+# Create a histogram of net price tuition, npt, with a reference line for William Jessup and facet_wrap by control variable
+plot2 <- ggplot(df, aes(x=npt)) + geom_histogram() + geom_vline(xintercept=jessup_ref, color='green') + facet_wrap(~control)
+# Calculate the correlation, cor, between npt and longitude and npt and latitude
+cor1 <- cor(df$npt,df$longitude)
+cor2 <- cor(df$npt,df$latitude)
+
+#Combine two scatter plots where of x=longitude,y = npt and where x=latitude,y = npt side by side.
+plot3 <- ggplot(df, aes(x=longitude, y=npt)) + geom_point()
+plot4 <- ggplot(df, aes(x=latitude, y=npt)) + geom_point()
+
+
+#Create another scatter plot of your choice starting with x=longitude, y=latitude.
+
+
+df_q4 <- df
+stats <- summary(df_q4$npt)
+df_q4$npt_q3 <-df_q4$npt >= stats[5]
+plot5 <- ggplot(df_q4, aes(longitude, latitude, color = npt_q3 ,alpha = .2)) +  geom_point() + borders("state") + scale_color_manual(values=c("gray", "red")) + labs(title = 'NPT in top quartile')
+
+```
+
+**William Jessup University is `r jessup_percent_rank` for all US colleges and `r jessup_percent_rank_private` for private for percent rank on net price of tuition, npt.**
+
+```{r, echo=FALSE}
+plot1
+```
+
+
+* How does it compare to the private college tuition?
+
+
+```{r, fig.width=12, echo=FALSE}
+plot2
+```
+</div> 
+
+College Tuition {data-icon="fas fa-university" .storyboard}
+=======================================================
+
+### What region has higher college tuition?
+
+<div class="text"> 
+* Based on npt, what areas of the country is tuition more expensive? Any theories why?
+
+**The latitude correlation, `r cor2`, is higher compared to longitude correlation, `r cor1` but still both have weak linear correlation. Based on the scatter plots below there is a noticeable pattern especially the variance along the coast. The next question to investigate is if the higher tuition colleges (top quartile) are located by major cities. **
+
+```{r, fig.width=12, echo=FALSE}
+grid.arrange(plot4,plot3,ncol=2)
+```
+
+```{r, fig.width=12, fig.height=8, echo=FALSE}
+plot5
+```
+</div> 
+
+### College Tuition Numeric Variables
+
+<div class="text"> 
+* How many colleges were excluded and what is the percentage of colleges remaining in the analysis? 
+
+```{r, echo=FALSE}
+colleges_excluded <- nrow(df_full) - nrow(df)
+colleges_remaining <- percent(nrow(df)/nrow(df_full))
+```
+
+
+**There were `r colleges_excluded` excluded colleges with `r colleges_remaining` remaining from the original data set**
+
+* What numeric variables are shown to have a linear relationship or recognizable pattern with npt?
+
+```{r, fig.width=12, echo=FALSE}
+df_num <- df %>% select(-unitid) %>% keep(is.numeric) %>%  gather(key = "key", value = "value", -npt)
+plot6 <- ggplot(df_num, aes(value, npt)) + geom_point(alpha = .2, size = .2) + facet_wrap(~ key, scales = "free")
+df_num_cor <- df_num %>% group_by(key) %>% 
+summarize(Cor = cor(value,npt, use = "complete.obs")) %>% mutate(Rank = dense_rank(1-abs(Cor))) %>% arrange(Rank)
+plot6
+```
+
+**Linear relationship with actcm75, omawdpd8_ftft and slight relatiion ship the the md_earn variables. Public colleges show to have a lower cost. V shaped pattern for ugds**
+
+* What numeric variables have the strongest linear correlation with npt?
+
+```{r, echo=FALSE}
+kable(df_num_cor)
+```
+
+</div> 
+
+College Recommendations {data-icon="fab fa-searchengin" .storyboard}
+========================================================
+
+### Requirements
+
+<div class="text"> 
+
+College Recommendation
+
+You have 2 student appointments tomorrow and need put together a short list of colleges to review based on student preferences.
+
+```{r, echo=FALSE}
+Name <- c('Violet','Olivia')
+ACT <- c(24,27)
+Priority <- c('College with high earnings to price ratio (50% weight) and high graduation rate (50% weight)','Low cost college (50% weight) close to the ocean (25% weight) with warm winters (25% weight)')
+recommend_task <- data.frame(Name = Name, ACT = ACT, Priority = Priority)
+kable(recommend_task)
+```
+
+</div>
+
+### Setup
+
+<div class="text"> 
+1. What are the top colleges for Violet? Any reason to advise against the top college?
+- Create data frame, violet, based on df.
+Filter for colleges within range (25th to 75th percentile) of Violet’s ACT score. For example, Violet’s ACT is 24 therefore 24 needs to be greater than or equal to actcm25 and less than or equal to actcm75.
+- Clean up or adjust key variables for violet. Key variables earnings (md_earn_wne_p6) and graduation rate (omawdp8_ftft)
+- Create a variable, earn_tuition, as the ratio of median earnings 6 years after entry, md_earn_wne_p6, over the average net price of tuition, npt
+- Create a composite variable, composite, where 50% weight for percent rank of earn_tuition and 50% weight for percent rank omawdp8_ftft
+- Create a table with kable for the top 10 colleges with variables to indicate if the data was adjusted, variables used for the composite and the final composite score
+- Create a map scatter plot (x = longitude, y = latitude) of the top 100 colleges for violet with the top 3 indicated with green, top 10 indicated yellow and other top 100 gray.
+2. What are the top colleges for Olivia? Any reason to advise against the top college?
+- Create data frame, olivia, based on df.
+- Using the college stations data. Demo below
+
+```{r, echo=TRUE, eval=FALSE}
+library(rnoaa)
+library(dplyr)
+# station_data <- ghcnd_stations()
+# save(station_data, file = 'station_data.Rda')
+load('station_data.Rda')
+#39.0968° N, 120.0324° W
+lat_lon_df <- data.frame(id = 'Palisades',
+                         latitude = 39.1976, longitude = -120.2354)
+stations <- meteo_nearby_stations(lat_lon_df = lat_lon_df,
+                      station_data = station_data,
+                      var = "TMIN", 
+                      year_min = 2021,
+                      radius = 50,
+                      limit = 2)
+palisades <- meteo_pull_monitors(
+                             date_min = format(Sys.Date()-30, '%Y-%m-%d'), 
+                             date_max = format(Sys.Date(), '%Y-%m-%d'))
+
+library(tidyr)
+library(dplyr)
+library(rnoaa)
+
+# stations
+load('college_scorecard.Rda')
+df <- df[!is.na(df$latitude) & !is.na(df$longitude),]
+df <- df[1:3,]
+
+i <- 1
+college_stations <- data.frame()
+for(i in seq_along(df$unitid)){
+temp <- df[i,]
+temp$id <- temp$unitid
+cs <- meteo_nearby_stations(lat_lon_df = temp,
+                      station_data = station_data,
+                      var = "TMIN", 
+                      year_min = 2020,
+                      year_max = 2021,
+                      radius = 100,
+                      limit = 2)
+stations <- cs[[1]]
+stations$unitid <- temp$unitid
+
+winter_start <- '2020-12-21'
+winter_end <- '2021-3-20'
+
+station_weather <- meteo_pull_monitors(stations$id,
+                    date_min = winter_start,
+                    date_max = winter_end,
+                    var = "TMIN")
+stations <- stations %>% inner_join(station_weather, by = 'id')
+college_stations <- rbind(college_stations,stations)
+}
+```
+
+Filter for colleges within range (25th to 75th percentile) of Olivia’s ACT score
+- Create a binary variable, coastal_state, based on State with Ocean coast (see wiki).
+</div>
+
+### College Recommendations
+<div class="text"> 
+
+1. What are the top colleges for Violet? Any reason to advise against the top college?
+
+```{r df, echo=FALSE}
+df2a <- df 
+df2a$act_adjusted <- is.na(df2a$actcm25) | is.na(df2a$actcm75)
+df2a$actcm25[is.na(df2a$actcm25)] <- min(df2a$actcm25, na.rm = TRUE)
+df2a$actcm75[is.na(df2a$actcm75)] <- max(df2a$actcm75, na.rm = TRUE)
+violet <- df2a %>% filter(24 >= actcm25 & 24 <= actcm75)
+violet <- violet[!is.na(violet$md_earn_wne_p6) & !is.na(violet$omawdp8_ftft),]
+violet$earn_tuition <- violet$md_earn_wne_p6/violet$npt
+violet <- violet %>% 
+  mutate(Composite = (percent_rank(earn_tuition)*.5 + 
+           percent_rank(omawdp8_ftft)*.5)) %>% 
+  arrange(desc(Composite))
+violet <- violet[1:100,]
+violet$Composite_Category <- 'Top 100'
+violet$Composite_Category[1:10] <- 'Top 10'
+violet$Composite_Category[1:3] <- 'Top 3'
+violet$Composite_Category <- factor(violet$Composite_Category, levels = c('Top 3','Top 10', 'Top 100'))
+violet$alpha <- 1
+violet$alpha[violet$Composite_Category == 'Top 100'] <- .2
+
+top10_violet <- violet[1:10,c('instnm','stabbr','city','act_adjusted','npt',
+                      'md_earn_wne_p6','earn_tuition','omawdp8_ftft',
+                      'Composite')]
+plot7 <- ggplot(violet, aes(longitude, latitude, color = Composite_Category, alpha = alpha)) +  geom_point(size = 2) + borders("state") + scale_color_manual(values=c("darkgreen","yellow","black"))
+```
+
+```{r, echo=FALSE}
+kable(top10_violet)
+```
+
+```{r, fig.width = 12, echo=FALSE}
+plot7
+```
+
+2. What are the top colleges for Olivia? Any reason to advise against the top college?
+
+```{r, echo=FALSE}
+# Coast ocean
+coast_ocean <- c('Alaska','Florida', 'California', 'Hawaii', 'Louisiana','Texas','North Carolina','Oregon'
+,'Maine','Massachusetts','South Carolina','Washington','New Jersey','New York','Virginia'
+,'Georgia','Connecticut','Alabama','Mississippi','Rhode Island','Maryland','Delaware',
+'New Hampshire')
+
+# Olivia recommendation
+olivia <- df2a %>% filter(27 >= actcm25 & 27 <= actcm75)
+states <- data.frame(State = state.name, State_Abb = state.abb, stringsAsFactors = FALSE)
+ocean_states <- states$State_Abb[states$State %in% coast_ocean]
+olivia$coastal_state <- olivia$stabbr %in% ocean_states
+
+load('college_stations.Rda')
+college_stations <- college_stations[!is.na(college_stations$tmin),]
+weather <- college_stations %>% group_by(unitid) %>% summarize(avg_min_temp = ((mean(tmin)/10)*9/5)+32)
+
+olivia <- olivia %>% inner_join(weather, by = 'unitid')
+
+olivia <- olivia %>% 
+  mutate(Composite = (1-percent_rank(npt))*.5 + 
+           coastal_state*.25 + 
+           percent_rank(avg_min_temp)*.25) %>% 
+  arrange(desc(Composite))
+olivia <- olivia[1:100,]
+olivia$Composite_Category <- 'Top 100'
+olivia$Composite_Category[1:10] <- 'Top 10'
+olivia$Composite_Category[1:3] <- 'Top 3'
+olivia$Composite_Category <- factor(olivia$Composite_Category, levels = c('Top 3','Top 10', 'Top 100'))
+olivia$alpha <- 1
+olivia$alpha[olivia$Composite_Category == 'Top 100'] <- .2
+
+top10_olivia <- olivia[1:10,c('instnm','stabbr','city','act_adjusted','npt',
+                      'coastal_state','avg_min_temp','Composite')]
+plot8 <- ggplot(olivia, aes(longitude, latitude, color = Composite_Category, alpha = alpha)) +  geom_point(size = 2) + borders("state") + scale_color_manual(values=c("darkgreen","yellow","black"))
+```
+
+```{r, echo=FALSE}
+kable(top10_olivia)
+```
+
+```{r, fig.width=12, echo=FALSE}
+plot8
+```
+</div>
+
+
+Linear Model {data-icon="fas fa-chart-line" .storyboard}
+============================================================
+
+### Setup
+
+<div class="text"> 
+* Add college census track population
+* Add college track fips to information (Demo how to get the fips data below). Try running the code below or loading in the college_fips.Rda data.
+
+```{r, echo=TRUE, eval=FALSE}
+library(curl) #client url to make API request
+library(magrittr) #package for %>% if dplyr is not loaded
+library(jsonlite) # convert from json to lists of data frames
+library(stringr) #use for 
+
+df$track_fips <- '0'
+for(i in seq_along(df$unitid)){
+  url_request <- paste0('https://geo.fcc.gov/api/census/area?lat=',df$latitude[i],'&lon=',df$longitude[i],'&format=json')
+  census_loc <- curl_fetch_memory(url = url_request) %$% content %>% rawToChar %>% fromJSON()
+  df$track_fips[i] <- str_trunc(census_loc$results$block_fips, 11, 'right',ellipsis = '')
+}
+
+college_fips <- df[,c('unitid','track_fips')]
+save(college_fips, file = 'college_fips.Rda')
+```
+
+* load census track population census_track.Rda
+
+* Add variable track_fips to census_track by pasteing together state,county,tract variables. Remove unneeded columns.
+* JOIN census track to college df using college_fips reference data frame
+* Split the data frame, df into 3 data frames
+choose a random 5 digit number and set seed
+* 60% into df_train
+* 20% into df_query
+* 20% into df_test
+
+
+```{r, echo=FALSE}
+library(modelr)
+df3a <- df
+df3a$actcm25[is.na(df3a$actcm25)] <- mean(df3a$actcm25, na.rm = TRUE)
+df3a <- df3a %>%
+  mutate(actcm75 = replace_na(actcm75,mean(df3a$actcm75, na.rm = TRUE)),
+         omawdp8_ftft = replace_na(omawdp8_ftft,mean(df3a$omawdp8_ftft, na.rm = TRUE)),
+         ugds = replace_na(ugds,mean(df3a$ugds, na.rm = TRUE)),
+         md_earn_wne_p8 = replace_na(md_earn_wne_p8,mean(df3a$md_earn_wne_p8, na.rm = TRUE))
+  )
+
+load("census_track.Rda")             
+load("college_fips.Rda")
+
+df3a <- df3a %>% inner_join(college_fips, by = 'unitid')
+
+census_tracks$track_fips <- paste(census_tracks$state,
+                                  census_tracks$county,
+                                  census_tracks$tract, sep = '')
+census_tracks$population <- census_tracks$B01003_001E
+census_tracks <- census_tracks %>% select(track_fips,population,state)
+
+df3a <- df3a %>% inner_join(census_tracks, by = 'track_fips')
+df3a$public <- as.numeric(df3a$control == 1)
+
+df3a$md_earn_wne_p6[is.na(df3a$md_earn_wne_p6)] <- mean(df3a$md_earn_wne_p6, na.rm = TRUE)
+
+set.seed(12587)
+# Split the data
+df3a$model <- sample(c('train','query','test'),
+                   length(df$unitid),
+                   replace = TRUE,
+                   prob = c(.6,.2,.2))
+df_train <- df3a[df3a$model == 'train',]
+df_query <- df3a[df3a$model == 'query',]
+df_test <- df3a[df3a$model == 'test',]
+```
+</div>
+
+
+### Model Building
+
+<div class="text"> 
+* Using the df_train dataframe. Create a linear model to predict npt
+* Use 3-5 variables from the college scorecard data and the college census tract population variable. Make sure to clean or adjust any variables with missing values in the main data frame df.
+* Work to improve the R squared by adding or removing variables
+* Apply your model and calculated the r squared for the train and query data frames
+* Work to improve the calculated r squared from df_query
+* Add or remove variables from the model with df_train
+* Apply updated model to df_query and calculate r squared
+* Continue to improve until r squared. r squared over 0 is better than using average, over 0.2 is decent start, over 0.4 is good, over 0.6 is great, over 0.8 is amazing but hard to believe.
+* Save final model and apply to df_test one time. Calculate the mean absolute error (mae) and mean absolute percent error (mape).
+
+```{r, echo=TRUE}
+m <- lm(npt ~ population + md_earn_wne_p8 + omawdp8_ftft + control + state,
+        data = df_train)
+
+
+df_train <- df_train %>% add_predictions(m) %>% add_residuals(m)
+df_query <- df_query %>% add_predictions(m) %>% add_residuals(m)
+r2_train <- round(1-(sum(df_train$resid^2)/sum((df_train$npt - mean(df_train$npt))^2)),4)
+r2_query <- round(1-(sum(df_query$resid^2)/sum((df_query$npt - mean(df_query$npt))^2)),4)
+
+plot9 <-ggplot(df_train, aes(npt,resid)) + geom_point(alpha = .2) + geom_ref_line(h = 0) + labs(title = 'train residuals')
+plot10 <-ggplot(df_query, aes(npt,resid)) + geom_point(alpha = .2) + geom_ref_line(h = 0) + labs(title = 'query residuals')
+
+## Save model and test data
+save(df_test, file = 'test.Rda')
+save(m, file ='my_awesome_model.Rda')
+compare <- data.frame('r2_train'=r2_train,'r2_query'=r2_query)
+
+mae <- dollar(mae(m,df_test))
+mape <- percent(mape(m,df_test), .001)
+df_test <- df_test %>% add_predictions(m) %>% add_residuals(m)
+df_test$abs_error <- abs(df_test$resid)
+plot11 <- ggplot(df_test, aes(npt,resid)) + geom_point(alpha=.2) + geom_ref_line(h = 0) + labs(title = 'test residuals')
+```
+
+</div>
+
+
+### Questions
+
+<div class="text">
+
+* How did the r squared between the train and query data compare?
+
+**The rsquared of the train data set is `r r2_train` and the rsquared for the query data set is `r r2_query`. The residual show a pattern with low price tuition predicted low and high price of tuition predicted high.**
+
+```{r, fig.width=12, echo=FALSE}
+grid.arrange(plot9,plot10,nrow=1)
+```
+
+* What the model performance with the test data (df_test)?
+
+
+**The mean absolute error of for the test data set was `r mae` which represents `r mape` of the college net price of tuition on average. This indicates the model is better then using mean net price of tuition. As noted in the train and query data sets, the residuals have the same pattern in the test data set.**
+
+```{r, echo=FALSE}
+plot11
+```
+
+
+* What are the top 10 colleges higher than expected based on the prediction model? What are the top 10 colleges lower than expected based on the prediction model?
+
+```{r, echo=FALSE}
+df3a <- df3a %>% add_predictions(m) %>% add_residuals(m)
+
+df_higher_10 <-df3a %>% select(instnm, npt, pred, resid) %>% filter(resid>0) %>% arrange(desc(resid)) %>% slice(1:10)
+
+df_lower <-df3a %>% select(instnm, npt, pred, resid) %>% filter(resid<0) %>% arrange(resid)
+df_lower_10 <- df_lower[1:10,]
+
+df3a$type <- ifelse(df3a$resid>0,'premium','bargain')
+df3a$type <- factor(df3a$type, levels = c('premium','bargain'))
+
+plot12 <- ggplot(df3a, aes(longitude, latitude, color=type)) + geom_point(size=2) + borders('state') + scale_color_manual(values=c("darkgreen","lightblue"))
+```
+
+**Top 10 Premium college (Higher than model prediction)**
+
+```{r, echo=FALSE}
+kable(df_higher_10)
+```
+
+**Top 10 Bargain college (Lower than model prediction)**
+
+```{r, echo=FALSE}
+kable(df_lower_10)
+```
+
+```{r, fig.width=12, echo=FALSE}
+plot12
+```
+</div>
+
+
+
+
