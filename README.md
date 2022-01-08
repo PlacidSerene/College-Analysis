@@ -1,6 +1,6 @@
 ## College Analysis
 
-This dashboard allows you to explore 1500+ colleges in the United States. Data was collected from CollegeScorecard API and Census API The dashboard will cover:
+This dashboard allows you to explore 1500+ colleges in the United States. Data was collected from CollegeScorecard API and Census API. This dashboard will cover:
 
 1. The quick overview of William Jessup University tuition (the school which the author currently attends)
 
